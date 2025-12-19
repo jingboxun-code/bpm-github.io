@@ -1,0 +1,984 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>音乐制作工具箱 | Suno AI Prompt + BPM调试</title>
+    <style>
+        /* iOS 系统字体 + 全局重置 */
+        @font-face {
+            font-family: 'SF Pro';
+            src: local('SF Pro Display'), local('Helvetica Neue'), local('Arial'), sans-serif;
+        }
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'SF Pro', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            -webkit-tap-highlight-color: rgba(0,0,0,0);
+        }
+        body {
+            background: #f5f5f7;
+            padding: 20px;
+            max-width: 850px;
+            margin: 0 auto;
+            color: #1d1d1f;
+        }
+        /* 容器 - iOS 卡片风格 */
+        .container {
+            background: #ffffff;
+            border-radius: 20px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+            padding: 0;
+            margin-top: 20px;
+            overflow: hidden;
+        }
+        /* 顶部Tab栏 */
+        .tab-nav {
+            display: flex;
+            border-bottom: 1px solid #e6e6e8;
+            background: #ffffff;
+        }
+        .tab-item {
+            flex: 1;
+            text-align: center;
+            padding: 16px 0;
+            font-size: 17px;
+            font-weight: 500;
+            color: #86868b;
+            cursor: pointer;
+            position: relative;
+            transition: color 0.2s ease;
+        }
+        .tab-item.active {
+            color: #0071e3;
+        }
+        .tab-item.active::after {
+            content: "";
+            position: absolute;
+            bottom: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 32px;
+            height: 3px;
+            background: #0071e3;
+            border-radius: 2px;
+        }
+        /* 功能模块容器 */
+        .tab-content {
+            padding: 32px 24px;
+            display: none;
+        }
+        .tab-content.active {
+            display: block;
+            animation: fadeIn 0.3s ease;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        /* 通用标题样式 */
+        h1 {
+            font-size: 28px;
+            font-weight: 600;
+            text-align: center;
+            margin-bottom: 32px;
+            letter-spacing: -0.5px;
+        }
+        /* 通用风格选择器 */
+        .style-select {
+            margin-bottom: 32px;
+        }
+        .style-select label {
+            display: block;
+            font-size: 15px;
+            color: #86868b;
+            margin-bottom: 8px;
+            font-weight: 400;
+        }
+        .style-select select {
+            width: 100%;
+            padding: 14px 16px;
+            border: 1px solid #e6e6e8;
+            border-radius: 12px;
+            font-size: 17px;
+            color: #1d1d1f;
+            background: #f9f9fb;
+            appearance: none;
+            background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2386868b' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 16px center;
+            cursor: pointer;
+            transition: border-color 0.2s ease;
+        }
+        .style-select select:focus {
+            outline: none;
+            border-color: #0071e3;
+        }
+        /* 通用复制按钮 */
+        .copy-btn {
+            padding: 10px 16px;
+            background: #0071e3;
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-size: 15px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: background 0.2s ease;
+        }
+        .copy-btn:hover {
+            background: #0077ed;
+        }
+        .copy-btn:active {
+            background: #0066cc;
+        }
+        /* 通用提示弹窗 */
+        .toast {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #1d1d1f;
+            color: white;
+            padding: 10px 20px;
+            border-radius: 8px;
+            font-size: 15px;
+            opacity: 0;
+            transition: opacity 0.2s ease;
+            pointer-events: none;
+            z-index: 999;
+        }
+        .toast.show {
+            opacity: 1;
+        }
+        /* ---------------- BPM调试器样式 ---------------- */
+        .bpm-control {
+            margin-bottom: 25px;
+        }
+        .bpm-control label {
+            display: block;
+            color: #86868b;
+            margin-bottom: 8px;
+            font-weight: 400;
+            font-size: 15px;
+        }
+        .bpm-slider {
+            width: 100%;
+            height: 6px;
+            -webkit-appearance: none;
+            appearance: none;
+            background: #e6e6e8;
+            border-radius: 3px;
+            margin: 16px 0;
+            outline: none;
+        }
+        .bpm-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 22px;
+            height: 22px;
+            border-radius: 50%;
+            background: #0071e3;
+            cursor: pointer;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            transition: transform 0.1s ease;
+        }
+        .bpm-slider::-webkit-slider-thumb:active {
+            transform: scale(1.1);
+        }
+        .bpm-value {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            justify-content: center;
+            margin-bottom: 8px;
+        }
+        .bpm-value input {
+            width: 88px;
+            padding: 10px 12px;
+            border: 1px solid #e6e6e8;
+            border-radius: 10px;
+            font-size: 20px;
+            text-align: center;
+            background: #f9f9fb;
+            color: #1d1d1f;
+            font-weight: 600;
+        }
+        .bpm-value input:focus {
+            outline: none;
+            border-color: #0071e3;
+        }
+        .bpm-value span {
+            font-size: 17px;
+            color: #86868b;
+        }
+        .bpm-range {
+            color: #86868b;
+            font-size: 14px;
+            text-align: center;
+        }
+        .control-btn {
+            display: flex;
+            justify-content: center;
+            gap: 16px;
+            margin-bottom: 36px;
+        }
+        button {
+            padding: 14px 32px;
+            border: none;
+            border-radius: 12px;
+            font-size: 17px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        #playBtn {
+            background: #0071e3;
+            color: white;
+        }
+        #playBtn:hover {
+            background: #0077ed;
+        }
+        #playBtn:active {
+            background: #0066cc;
+        }
+        #pauseBtn {
+            background: #f1f1f3;
+            color: #1d1d1f;
+        }
+        #pauseBtn:hover {
+            background: #e9e9eb;
+        }
+        #pauseBtn:active {
+            background: #dcdcde;
+        }
+        .rhythm-visual {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 16px;
+            margin-top: 8px;
+        }
+        .beat {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            background: #f1f1f3;
+            transition: all 0.15s cubic-bezier(0.25, 0.1, 0.25, 1);
+        }
+        .beat.active {
+            background: #0071e3;
+            transform: scale(1.2);
+            box-shadow: 0 2px 8px rgba(0, 113, 227, 0.3);
+        }
+        .bpm-tips {
+            margin-top: 32px;
+            color: #86868b;
+            font-size: 14px;
+            line-height: 1.6;
+            text-align: center;
+        }
+        /* ---------------- 旋律曲库样式 ---------------- */
+        .update-group {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 28px;
+            gap: 12px;
+        }
+        #updateBtn {
+            padding: 12px 24px;
+            background: #0071e3;
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-size: 15px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: background 0.2s ease;
+        }
+        #updateBtn:hover {
+            background: #0077ed;
+        }
+        #updateBtn:active {
+            background: #0066cc;
+        }
+        #updateBtn:disabled {
+            background: #e6e6e8;
+            color: #86868b;
+            cursor: not-allowed;
+        }
+        .prompt-section {
+            margin-bottom: 32px;
+        }
+        .prompt-card {
+            background: #f9f9fb;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 16px;
+            border: 1px solid #e6e6e8;
+        }
+        .prompt-card h3 {
+            font-size: 17px;
+            font-weight: 600;
+            margin-bottom: 12px;
+            color: #1d1d1f;
+        }
+        .prompt-card p {
+            font-size: 15px;
+            color: #424245;
+            line-height: 1.6;
+            margin-bottom: 16px;
+            white-space: pre-wrap;
+        }
+        .style-note {
+            font-size: 14px;
+            color: #86868b;
+            line-height: 1.6;
+            margin-top: 8px;
+            padding-top: 16px;
+            border-top: 1px solid #e6e6e8;
+        }
+        /* ---------------- 风格曲库样式 ---------------- */
+        .keyword-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+        @media (max-width: 680px) {
+            .keyword-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+        .keyword-card {
+            background: #f9f9fb;
+            border-radius: 12px;
+            padding: 20px;
+            border: 1px solid #e6e6e8;
+        }
+        .keyword-card h3 {
+            font-size: 17px;
+            font-weight: 600;
+            margin-bottom: 12px;
+            color: #1d1d1f;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .keyword-card h3::before {
+            content: "";
+            display: inline-block;
+            width: 4px;
+            height: 18px;
+            background: #0071e3;
+            border-radius: 2px;
+        }
+        .keyword-card p {
+            font-size: 15px;
+            color: #424245;
+            line-height: 1.6;
+            margin-bottom: 16px;
+            white-space: pre-wrap;
+        }
+        /* 响应式适配 */
+        @media (max-width: 480px) {
+            .container {
+                padding: 0;
+            }
+            .tab-content {
+                padding: 24px 16px;
+            }
+            h1 {
+                font-size: 24px;
+                margin-bottom: 28px;
+            }
+            .control-btn {
+                flex-direction: column;
+                gap: 12px;
+            }
+            button {
+                width: 100%;
+            }
+            .rhythm-visual {
+                gap: 12px;
+            }
+            .beat {
+                width: 32px;
+                height: 32px;
+            }
+            .update-group {
+                flex-direction: column;
+            }
+            #updateBtn {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- 顶部Tab导航 -->
+        <div class="tab-nav">
+            <div class="tab-item active" data-tab="bpm">BPM调试器</div>
+            <div class="tab-item" data-tab="melody">旋律曲库</div>
+            <div class="tab-item" data-tab="arrange">风格曲库</div>
+        </div>
+
+        <!-- 1. BPM调试器模块 -->
+        <div class="tab-content active" id="bpm-content">
+            <h1>BPM调试器</h1>
+            
+            <!-- 风格选择 -->
+            <div class="style-select">
+                <label for="bpmStyleType">选择音乐风格（自动匹配BPM阈值）</label>
+                <select id="bpmStyleType">
+                    <option value="default" selected>通用默认 - 90 BPM</option>
+                    <option value="pop">流行 (Pop) - 80-120 BPM</option>
+                    <option value="jazz">爵士 (Jazz) - 60-90 BPM</option>
+                    <option value="melancholic">伤感抒情 - 60-85 BPM</option>
+                    <option value="upbeat">动感节奏 - 110-150 BPM</option>
+                    <option value="hiphop">嘻哈 (HipHop) - 85-95 BPM</option>
+                    <option value="rnb">节奏布鲁斯 (R&B) - 70-85 BPM</option>
+                    <option value="edm">电子舞曲 (EDM) - 128-140 BPM</option>
+                    <option value="folk">民谣 (Folk) - 70-90 BPM</option>
+                    <option value="rock">摇滚 (Rock) - 100-130 BPM</option>
+                    <option value="classical">古典 (Classical) - 50-80 BPM</option>
+                    <option value="country">乡村 (Country) - 80-100 BPM</option>
+                </select>
+            </div>
+
+            <!-- BPM控制 -->
+            <div class="bpm-control">
+                <label for="bpmSlider">调整BPM数值</label>
+                <input type="range" id="bpmSlider" class="bpm-slider" min="40" max="200" value="90">
+                <div class="bpm-value">
+                    <input type="number" id="bpmInput" min="40" max="200" value="90">
+                    <span>BPM</span>
+                </div>
+                <div class="bpm-range" id="bpmRange">当前风格阈值：无固定阈值（通用默认）</div>
+            </div>
+
+            <!-- 播放控制 -->
+            <div class="control-btn">
+                <button id="playBtn">播放节奏</button>
+                <button id="pauseBtn">暂停节奏</button>
+            </div>
+
+            <!-- 节奏视觉化 -->
+            <div class="rhythm-visual">
+                <div class="beat" id="beat1"></div>
+                <div class="beat" id="beat2"></div>
+                <div class="beat" id="beat3"></div>
+                <div class="beat" id="beat4"></div>
+            </div>
+
+            <div class="bpm-tips">
+                4/4拍节奏（底鼓1、3拍，军鼓2、4拍）| 调整BPM实时同步节奏与视觉反馈
+            </div>
+        </div>
+
+        <!-- 2. 旋律曲库模块 -->
+        <div class="tab-content" id="melody-content">
+            <h1>旋律曲库 | Suno AI Prompt</h1>
+            
+            <!-- 一键更新按钮 -->
+            <div class="update-group">
+                <button id="updateBtn">一键更新最新关键词</button>
+            </div>
+
+            <!-- 风格选择 -->
+            <div class="style-select">
+                <label for="melodyStyleType">选择曲风（2020-2025全球流行趋势）</label>
+                <select id="melodyStyleType">
+                    <option value="global-pop" selected>全球流行 (Global Pop)</option>
+                    <option value="alt-rock">另类摇滚 (Alternative Rock)</option>
+                    <option value="hiphop">当代嘻哈 (Contemporary HipHop)</option>
+                    <option value="electronic">流行电子 (Pop Electronic)</option>
+                    <option value="jazz">现代爵士 (Modern Jazz)</option>
+                    <option value="rnb">新生代R&B (New Gen R&B)</option>
+                    <option value="folk-pop">民谣流行 (Folk Pop)</option>
+                </select>
+            </div>
+
+            <!-- Prompt展示区 -->
+            <div class="prompt-section" id="promptContent">
+                <div class="prompt-card">
+                    <h3>核心Prompt模板（即拿即用）</h3>
+                    <p>Catchy global pop melody, 2023-2025 trend, upbeat but emotional, 92 BPM, melodic hook with ascending vocal line, simple chord progression (I-V-vi-IV), bright synth lead, warm acoustic guitar underlay, radio-ready, high singability, male/female vocal friendly</p>
+                    <button class="copy-btn" onclick="copyMelodyPrompt(this)">复制模板</button>
+                </div>
+                <div class="prompt-card">
+                    <h3>经典旋律动机关键词</h3>
+                    <p>memorable 4-note melodic motif, chorus with repetitive hook phrase, verse with stepwise melody movement, pre-chorus build-up with pitch rise, bridge with melodic variation, minimal ornamentation, clean melodic line</p>
+                    <button class="copy-btn" onclick="copyMelodyPrompt(this)">复制关键词</button>
+                </div>
+                <div class="prompt-card">
+                    <h3>进阶调整关键词（适配Suno）</h3>
+                    <p>melodic range: mid-high (C4-F5), legato phrasing, subtle vibrato on long notes, syncopated rhythm in chorus, melodic call-and-response, consonant harmony, pop cadence (V-I)</p>
+                    <button class="copy-btn" onclick="copyMelodyPrompt(this)">复制调整词</button>
+                </div>
+                <div class="style-note" id="melodyNote">
+                    风格说明：2020-2025全球流行旋律特征——短乐句+高记忆点hook、I-V-vi-IV经典和弦走向、中高音区旋律线，兼顾抒情与律动，适配欧美/华语主流流行曲范式。
+                </div>
+            </div>
+        </div>
+
+        <!-- 3. 风格曲库模块 -->
+        <div class="tab-content" id="arrange-content">
+            <h1>风格曲库 | 编曲关键词工具</h1>
+            
+            <!-- 风格选择 -->
+            <div class="style-select">
+                <label for="arrangeStyleType">选择编曲风格（2020-2025主流趋势）</label>
+                <select id="arrangeStyleType">
+                    <option value="global-pop" selected>全球流行 (Global Pop)</option>
+                    <option value="alt-rock">另类摇滚 (Alternative Rock)</option>
+                    <option value="hiphop">当代嘻哈 (Contemporary HipHop)</option>
+                    <option value="electronic">流行电子 (Pop Electronic)</option>
+                    <option value="melancholic">伤感抒情 (Melancholic Pop)</option>
+                    <option value="chinese-folk">国风流行 (Chinese Folk Pop)</option>
+                    <option value="rnb">新生代R&B (New Gen R&B)</option>
+                    <option value="folk-pop">民谣流行 (Folk Pop)</option>
+                </select>
+            </div>
+
+            <!-- 关键词卡片组 -->
+            <div class="keyword-grid" id="keywordContent">
+                <div class="keyword-card">
+                    <h3>编曲模板</h3>
+                    <p>Acoustic guitar-led pop arrangement, 92 BPM, verse: fingerpicking + soft bass + light shaker, chorus: full strumming + electronic drums + bright synth pad + backing vocals, bridge: stripped down (guitar + vocal) + build up to climax, radio-ready mix, high singability</p>
+                    <button class="copy-btn" onclick="copyArrangePrompt(this)">复制</button>
+                </div>
+                <div class="keyword-card">
+                    <h3>核心和弦</h3>
+                    <p>I-V-vi-IV (C-G-Am-F), vi-IV-I-V (Am-F-C-G), ii-V-I (Dm-G-C), simple 4-chord progression, consonant harmony, pop cadence</p>
+                    <button class="copy-btn" onclick="copyArrangePrompt(this)">复制</button>
+                </div>
+                <div class="keyword-card">
+                    <h3>节奏型</h3>
+                    <p>4/4 time, steady 8th note groove, soft kick on 1&3, crisp clap on 2&4, shaker on off-beats, syncopated bass line, verse: laid-back rhythm, chorus: driving beat</p>
+                    <button class="copy-btn" onclick="copyArrangePrompt(this)">复制</button>
+                </div>
+                <div class="keyword-card">
+                    <h3>场景关键词</h3>
+                    <p>Upbeat but emotional, nostalgic, summer vibe, urban pop, radio-friendly, intimate storytelling, uplifting chorus, warm and bright atmosphere</p>
+                    <button class="copy-btn" onclick="copyArrangePrompt(this)">复制</button>
+                </div>
+            </div>
+
+            <!-- 风格说明 -->
+            <div class="style-note" id="arrangeNote">
+                风格说明：2020-2025全球流行编曲特征——吉他主导+轻电子元素融合，4和弦经典走向，稳定的8分音符律动，兼顾抒情与律动，适配Taylor Swift/Dua Lipa等主流流行风格。
+            </div>
+        </div>
+    </div>
+
+    <!-- 通用提示弹窗 -->
+    <div class="toast" id="copyToast">已复制到剪贴板 ✅</div>
+    <div class="toast" id="updateToast">更新成功！已加载最新关键词 🎉</div>
+    <div class="toast" id="errorToast">更新失败，请检查网络或稍后重试 ❌</div>
+
+    <script>
+        // ---------------- 通用Tab切换逻辑 ----------------
+        const tabItems = document.querySelectorAll('.tab-item');
+        const tabContents = document.querySelectorAll('.tab-content');
+
+        tabItems.forEach(item => {
+            item.addEventListener('click', () => {
+                // 移除所有active状态
+                tabItems.forEach(tab => tab.classList.remove('active'));
+                tabContents.forEach(content => content.classList.remove('active'));
+                
+                // 添加当前active状态
+                item.classList.add('active');
+                const tabId = item.getAttribute('data-tab');
+                document.getElementById(`${tabId}-content`).classList.add('active');
+            });
+        });
+
+        // ---------------- 通用复制提示逻辑 ----------------
+        function showToast(toastId, duration = 1500) {
+            const toast = document.getElementById(toastId);
+            toast.classList.add('show');
+            setTimeout(() => {
+                toast.classList.remove('show');
+            }, duration);
+        }
+
+        // ---------------- 1. BPM调试器核心逻辑 ----------------
+        // BPM风格配置表
+        const bpmStyleConfig = {
+            default: { min: 40, max: 200, default: 90 },
+            pop: { min: 80, max: 120, default: 90 },
+            jazz: { min: 60, max: 90, default: 75 },
+            melancholic: { min: 60, max: 85, default: 70 },
+            upbeat: { min: 110, max: 150, default: 128 },
+            hiphop: { min: 85, max: 95, default: 90 },
+            rnb: { min: 70, max: 85, default: 80 },
+            edm: { min: 128, max: 140, default: 128 },
+            folk: { min: 70, max: 90, default: 80 },
+            rock: { min: 100, max: 130, default: 110 },
+            classical: { min: 50, max: 80, default: 65 },
+            country: { min: 80, max: 100, default: 90 }
+        };
+
+        // BPM DOM元素
+        const bpmStyleSelect = document.getElementById('bpmStyleType');
+        const bpmSlider = document.getElementById('bpmSlider');
+        const bpmInput = document.getElementById('bpmInput');
+        const bpmRange = document.getElementById('bpmRange');
+        const playBtn = document.getElementById('playBtn');
+        const pauseBtn = document.getElementById('pauseBtn');
+        const beats = [
+            document.getElementById('beat1'),
+            document.getElementById('beat2'),
+            document.getElementById('beat3'),
+            document.getElementById('beat4')
+        ];
+
+        // BPM音频相关
+        let audioContext;
+        let isPlaying = false;
+        let beatInterval;
+        let currentBeat = 0;
+
+        // 创建鼓点音色
+        function createDrumSound(type) {
+            if (!audioContext) {
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            }
+            if (audioContext.state === 'suspended') {
+                audioContext.resume();
+            }
+            
+            const oscillator = audioContext.createOscillator();
+            const gainNode = audioContext.createGain();
+            
+            oscillator.connect(gainNode);
+            gainNode.connect(audioContext.destination);
+
+            if (type === 'kick') {
+                oscillator.type = 'sine';
+                oscillator.frequency.setValueAtTime(100, audioContext.currentTime);
+                oscillator.frequency.exponentialRampToValueAtTime(20, audioContext.currentTime + 0.2);
+                gainNode.gain.setValueAtTime(0.8, audioContext.currentTime);
+                gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.2);
+            } else if (type === 'snare') {
+                oscillator.type = 'square';
+                oscillator.frequency.setValueAtTime(200, audioContext.currentTime);
+                gainNode.gain.setValueAtTime(0.5, audioContext.currentTime);
+                gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.1);
+            }
+
+            oscillator.start(audioContext.currentTime);
+            oscillator.stop(audioContext.currentTime + 0.2);
+        }
+
+        // BPM风格切换
+        bpmStyleSelect.addEventListener('change', function() {
+            const style = this.value;
+            const config = bpmStyleConfig[style];
+            
+            bpmSlider.value = config.default;
+            bpmInput.value = config.default;
+            
+            if (style === 'default') {
+                bpmRange.textContent = `当前风格阈值：无固定阈值（通用默认）`;
+            } else {
+                bpmRange.textContent = `当前风格阈值：${config.min} - ${config.max} BPM`;
+            }
+        });
+
+        // BPM滑块与输入框联动
+        bpmSlider.addEventListener('input', function() {
+            bpmInput.value = this.value;
+        });
+
+        bpmInput.addEventListener('input', function() {
+            let value = parseInt(this.value) || 90;
+            if (value < 40) value = 40;
+            if (value > 200) value = 200;
+            this.value = value;
+            bpmSlider.value = value;
+        });
+
+        // 播放节奏
+        function playRhythm() {
+            if (isPlaying) return;
+            isPlaying = true;
+            
+            const bpm = parseInt(bpmInput.value) || 90;
+            const beatMs = (60 / bpm) * 1000;
+
+            if (beatInterval) clearInterval(beatInterval);
+            
+            beatInterval = setInterval(() => {
+                beats.forEach(beat => beat.classList.remove('active'));
+                beats[currentBeat].classList.add('active');
+                
+                if (currentBeat === 0 || currentBeat === 2) {
+                    createDrumSound('kick');
+                } else {
+                    createDrumSound('snare');
+                }
+
+                currentBeat = (currentBeat + 1) % 4;
+            }, beatMs);
+        }
+
+        // 暂停节奏
+        function pauseRhythm() {
+            if (!isPlaying) return;
+            isPlaying = false;
+            clearInterval(beatInterval);
+            beats.forEach(beat => beat.classList.remove('active'));
+            currentBeat = 0;
+        }
+
+        // BPM按钮绑定
+        playBtn.addEventListener('click', playRhythm);
+        pauseBtn.addEventListener('click', pauseRhythm);
+
+        // ---------------- 2. 旋律曲库核心逻辑 ----------------
+        // 旋律库初始数据
+        let melodyPromptLib = {
+            "global-pop": {
+                template: `Catchy global pop melody, 2023-2025 trend, upbeat but emotional, 92 BPM, melodic hook with ascending vocal line, simple chord progression (I-V-vi-IV), bright synth lead, warm acoustic guitar underlay, radio-ready, high singability, male/female vocal friendly`,
+                motif: `memorable 4-note melodic motif, chorus with repetitive hook phrase, verse with stepwise melody movement, pre-chorus build-up with pitch rise, bridge with melodic variation, minimal ornamentation, clean melodic line`,
+                adjust: `melodic range: mid-high (C4-F5), legato phrasing, subtle vibrato on long notes, syncopated rhythm in chorus, melodic call-and-response, consonant harmony, pop cadence (V-I)`,
+                note: `风格说明：2020-2025全球流行旋律特征——短乐句+高记忆点hook、I-V-vi-IV经典和弦走向、中高音区旋律线，兼顾抒情与律动，适配欧美/华语主流流行曲范式。`
+            },
+            "alt-rock": {
+                template: `Alternative rock melody, 2020-2025 indie trend, 105 BPM, gritty guitar-driven melody, minor key (A minor), melodic tension in verse, explosive chorus hook, raw vocal delivery, distorted guitar riffs, moderate melodic range (A3-D5), grunge-influenced phrasing`,
+                motif: `7-note descending melodic motif, chorus with sustained long notes, verse with staccato rhythm, bridge with melodic climax (pitch peak), call-and-response between guitar and vocal, dissonant harmony accents`,
+                adjust: `melodic range: mid-low to mid-high (A3-D5), aggressive vibrato, syncopated guitar-vocal sync, rock cadence (vi-IV-I-V), slight pitch bend on guitar notes, vocal rasp on chorus`,
+                note: `风格说明：2020-2025另类摇滚旋律特征——小调基调、吉他主导的张力旋律、主歌断奏+副歌爆发，融合90年代grunge与现代indie质感，适配Billie Eilish/Fontaines D.C.风格。`
+            },
+            "hiphop": {
+                template: `Contemporary HipHop melody, 2022-2025 trap/pop rap trend, 88 BPM, melodic rap flow, minor pentatonic scale (E minor), smooth vocal melody over trap beat, catchy 8-bar hook, minimal melodic ornamentation, bass-heavy underlay, mid-range vocal tone`,
+                motif: `5-note repetitive melodic loop, verse with rhythmic rap melody (syncopated), chorus with sung melodic hook, melodic pause on downbeat, stepwise melody movement (no large leaps), trap-style melodic cadence`,
+                adjust: `melodic range: mid (D4-G4), relaxed legato phrasing, subtle auto-tune effect, melodic sync with 808 kick, off-beat melodic accents, consonant trap harmony (i-v-vi-iv)`,
+                note: `风格说明：2020-2025当代嘻哈旋律特征——旋律说唱（Melodic Rap）为主、五声音阶小调循环、8小节抓耳hook，适配Post Malone/Jack Harlow风格，兼顾说唱律动与流行旋律性。`
+            },
+            "electronic": {
+                template: `Pop electronic melody, 2021-2025 EDM/pop crossover, 128 BPM, euphoric synth melody, major key (F major), uplifting chorus hook, arpeggiated verse melody, drop section with melodic climax, bright synth lead, melodic build-up pre-drop`,
+                motif: `8-note ascending arpeggio motif, chorus with sustained high notes, verse with fast arpeggiated melody, bridge with melodic breakdown, call-and-response between synth and vocal, electronic cadence (I-IV-vi-V)`,
+                adjust: `melodic range: high (C5-A5), staccato arpeggio phrasing, legato vocal melody, synth glide on long notes, melodic sync with 4/4 electronic beat, reverb-drenched melodic layers`,
+                note: `风格说明：2020-2025流行电子旋律特征——高八度 euphoric 合成器旋律、琶音主导主歌、副歌长音爆发，适配David Guetta/Marshmello的EDM-Pop融合风格，强调旋律的“飞升感”。`
+            },
+            "jazz": {
+                template: `Modern jazz melody, 2020-2025 neo-soul/jazz fusion, 78 BPM, chromatic melodic line, mixolydian mode (G mixolydian), smooth vocal melody over jazz chords, improvisational chorus variation, warm piano underlay, melodic rubato phrasing`,
+                motif: `9-note chromatic melodic motif, verse with stepwise chromatic movement, chorus with melodic improvisation, bridge with modal shift, call-and-response between piano and vocal, jazz cadence (ii-V-I)`,
+                adjust: `melodic range: mid (Bb3-E5), legato rubato phrasing, subtle vocal scatting, blue note accents (flat 3rd/7th), melodic sync with swing rhythm, extended chord harmony (9th/11th chords)`,
+                note: `风格说明：2020-2025现代爵士旋律特征——半音化旋律线、混合利底亚调式、rubato自由节奏，融合neo-soul质感，适配Tom Misch/Bill Evans风格，强调旋律的即兴与顺滑。`
+            },
+            "rnb": {
+                template: `New gen R&B melody, 2022-2025 alternative R&B trend, 75 BPM, sultry vocal melody, minor key (B minor), breathy phrasing, slow melodic build-up, chorus with falsetto hook, warm Rhodes piano underlay, melodic tension & release`,
+                motif: `6-note descending melodic motif, verse with whispered melody, chorus with falsetto peak (F5), bridge with melodic ad-libs, call-and-response between vocal layers, R&B cadence (vi-ii-V-I)`,
+                adjust: `melodic range: mid to high (A3-F5), breathy legato phrasing, vocal runs on long notes, syncopated melodic rhythm, subtle pitch slides, neo-soul harmony (7th/9th chords)`,
+                note: `风格说明：2020-2025新生代R&B旋律特征——慵懒气声旋律、假声副歌hook、半音滑音，适配SZA/Bryson Tiller风格，强调旋律的“松弛感”与情感张力。`
+            },
+            "folk-pop": {
+                template: `Folk pop melody, 2021-2025 acoustic trend, 85 BPM, warm acoustic guitar melody, major key (G major), storytelling vocal melody, simple melodic line, chorus with harmonized hook, fingerpicked guitar underlay, organic melodic phrasing`,
+                motif: `5-note folk melodic motif (pentatonic), verse with conversational melody, chorus with ascending harmonized line, bridge with melodic simplification, call-and-response between guitar and vocal, folk cadence (I-IV-V)`,
+                adjust: `melodic range: mid (G3-C5), legato conversational phrasing, minimal vibrato, melodic sync with fingerpicked guitar, natural vocal tone, open chord harmony`,
+                note: `风格说明：2020-2025民谣流行旋律特征——五声音阶简单旋律线、叙事性主歌+和声副歌，适配Olivia Rodrigo/Vance Joy风格，强调旋律的“质朴感”与传唱度。`
+            }
+        };
+
+        // 复制旋律Prompt
+        function copyMelodyPrompt(btn) {
+            const promptText = btn.previousElementSibling.textContent;
+            navigator.clipboard.writeText(promptText).then(() => {
+                showToast('copyToast');
+            });
+        }
+
+        // 渲染旋律Prompt
+        function renderMelodyContent(style) {
+            const promptData = melodyPromptLib[style];
+            const promptContent = document.getElementById('promptContent');
+            
+            promptContent.innerHTML = `
+                <div class="prompt-card">
+                    <h3>核心Prompt模板（即拿即用）</h3>
+                    <p>${promptData.template}</p>
+                    <button class="copy-btn" onclick="copyMelodyPrompt(this)">复制模板</button>
+                </div>
+                <div class="prompt-card">
+                    <h3>经典旋律动机关键词</h3>
+                    <p>${promptData.motif}</p>
+                    <button class="copy-btn" onclick="copyMelodyPrompt(this)">复制关键词</button>
+                </div>
+                <div class="prompt-card">
+                    <h3>进阶调整关键词（适配Suno）</h3>
+                    <p>${promptData.adjust}</p>
+                    <button class="copy-btn" onclick="copyMelodyPrompt(this)">复制调整词</button>
+                </div>
+                <div class="style-note" id="melodyNote">
+                    ${promptData.note}
+                </div>
+            `;
+        }
+
+        // 旋律风格切换
+        document.getElementById('melodyStyleType').addEventListener('change', function() {
+            renderMelodyContent(this.value);
+        });
+
+        // 一键更新旋律库
+        async function updateMelodyLib() {
+            const updateBtn = document.getElementById('updateBtn');
+            updateBtn.disabled = true;
+            updateBtn.textContent = "更新中...";
+
+            try {
+                // 替换为你的后端接口地址
+                const response = await fetch('http://localhost:3000/api/melodyLib', {
+                    method: 'GET',
+                    headers: { 'Content-Type': 'application/json' },
+                    timeout: 10000
+                });
+
+                if (response.ok) {
+                    const newLib = await response.json();
+                    melodyPromptLib = newLib;
+                    renderMelodyContent(document.getElementById('melodyStyleType').value);
+                    showToast('updateToast', 2000);
+                    localStorage.setItem('melodyPromptLib', JSON.stringify(newLib));
+                } else {
+                    throw new Error('接口返回异常');
+                }
+            } catch (error) {
+                console.error('更新失败：', error);
+                showToast('errorToast', 2000);
+                const cachedLib = localStorage.getItem('melodyPromptLib');
+                if (cachedLib) {
+                    melodyPromptLib = JSON.parse(cachedLib);
+                }
+            } finally {
+                updateBtn.disabled = false;
+                updateBtn.textContent = "一键更新最新关键词";
+            }
+        }
+
+        // 绑定更新按钮
+        document.getElementById('updateBtn').addEventListener('click', updateMelodyLib);
+
+        // 初始化旋律库（读取缓存）
+        window.onload = function() {
+            const cachedLib = localStorage.getItem('melodyPromptLib');
+            if (cachedLib) {
+                melodyPromptLib = JSON.parse(cachedLib);
+                renderMelodyContent('global-pop');
+            }
+        };
+
+        // ---------------- 3. 风格曲库核心逻辑 ----------------
+        // 编曲库数据
+        const arrangeLib = {
+            "global-pop": {
+                arrange: `Acoustic guitar-led pop arrangement, 92 BPM, verse: fingerpicking + soft bass + light shaker, chorus: full strumming + electronic drums + bright synth pad + backing vocals, bridge: stripped down (guitar + vocal) + build up to climax, radio-ready mix, high singability`,
+                chord: `I-V-vi-IV (C-G-Am-F), vi-IV-I-V (Am-F-C-G), ii-V-I (Dm-G-C), simple 4-chord progression, consonant harmony, pop cadence`,
+                rhythm: `4/4 time, steady 8th note groove, soft kick on 1&3, crisp clap on 2&4, shaker on off-beats, syncopated bass line, verse: laid-back rhythm, chorus: driving beat`,
+                scene: `Upbeat but emotional, nostalgic, summer vibe, urban pop, radio-friendly, intimate storytelling, uplifting chorus, warm and bright atmosphere`,
+                note: `风格说明：2020-2025全球流行编曲特征——吉他主导+轻电子元素融合，4和弦经典走向，稳定的8分音符律动，兼顾抒情与律动，适配Taylor Swift/Dua Lipa等主流流行风格。`
+            },
+            "alt-rock": {
+                arrange: `Gritty alternative rock arrangement, 105 BPM, verse: clean guitar riff + minimal drums + bass, chorus: distorted guitar wall + heavy drums + vocal harmonies, bridge: guitar solo + dynamic build up, raw and organic mix, moderate compression`,
+                chord: `Minor key progression (A minor), vi-IV-I-V (Am-F-C-G), i-iv-v (Am-Dm-Em), power chords (5th chords), dissonant accents, rock cadence`,
+                rhythm: `4/4 time, driving 4th note kick, snare on 2&4 with reverb, guitar riff syncopated with drums, verse: mid-tempo groove, chorus: explosive beat, slight shuffle feel`,
+                scene: `Raw and emotional, indie vibe, grunge-influenced, dark and moody, rebellious, intimate live feel, atmospheric guitar layers`,
+                note: `风格说明：2020-2025另类摇滚编曲特征——小调基调+失真吉他墙，强力和弦为主，驱动型鼓组，主歌简约副歌爆发，适配Billie Eilish/Fontaines D.C.风格。`
+            },
+            "hiphop": {
+                arrange: `Trap pop hiphop arrangement, 88 BPM, verse: 808 bass + minimal trap drums + melodic synth loop, chorus: full 808 + hi-hats roll + vocal ad-libs + piano keys, bridge: stripped 808 + vocal only + build up, bass-heavy mix, slight auto-tune on vocal`,
+                chord: `Minor pentatonic progression (E minor), i-v-vi-iv (Em-Bm-C-Am), vi-ii-V-I (C-Fm-B-Em), simple 2-chord loop, trap harmony, dark consonance`,
+                rhythm: `4/4 time, 808 kick on 1&3, rapid hi-hats (16th notes), snare on 2&4 with delay, off-beat bass hits, verse: laid-back trap groove, chorus: tight hi-hats roll`,
+                scene: `Urban street vibe, late night mood, melodic rap, chill trap, modern hiphop, club-friendly, smooth and groovy`,
+                note: `风格说明：2020-2025当代嘻哈编曲特征——808贝斯主导+陷阱鼓组，五声音阶小调循环，16分音符踩镲，适配Post Malone/Jack Harlow的Melodic Trap风格。`
+            },
+            "electronic": {
+                arrange: `Euphoric EDM pop arrangement, 128 BPM, verse: arpeggiated synth + minimal 4/4 drums + sub bass, chorus: drop with full synth lead + heavy electronic drums + reverb, bridge: breakdown (piano + vocal) + build up with riser, bright mix, wide stereo field`,
+                chord: `Major key progression (F major), I-IV-vi-V (F-Bb-Dm-C), ii-V-I (Gm-C-F), uplifting arpeggio chords, electronic cadence, bright consonance`,
+                rhythm: `4/4 time, four-to-the-floor kick, clap on 2&4, 16th note hi-hats, build up with cymbal swells, verse: minimal groove, chorus: full 4/4 beat, riser before drop`,
+                scene: `Euphoric, festival vibe, dance floor, uplifting, summer anthem, electronic pop crossover, wide and atmospheric`,
+                note: `风格说明：2020-2025流行电子编曲特征——4/4地板鼓+琶音合成器，大调明亮和弦，Drop段全频段爆发，适配David Guetta/Marshmello的EDM-Pop风格。`
+            },
+            "melancholic": {
+                arrange: `Melancholic pop ballad arrangement, 75 BPM, verse: piano solo + soft vocal + subtle cello, chorus: piano + gentle strings + light drums + bass, bridge: vocal only + build up to climax + full strings, intimate mix, low compression, warm reverb`,
+                chord: `Minor key progression (B minor), i-iv-v (Bm-Em-F#), vi-ii-V-I (Gm-C-F-Bm), sad chord voicings, suspended chords (Bsus4), melancholic cadence`,
+                rhythm: `4/4 time, slow 8th note piano, soft kick on 1, gentle snare on 3, minimal percussion, verse: rubato rhythm, chorus: steady slow beat, emotional timing`,
+                scene: `Heartfelt, nostalgic, late night, intimate, emotional storytelling, sad but beautiful, cinematic, vulnerable`,
+                note: `风格说明：2020-2025伤感抒情编曲特征——钢琴/弦乐主导，小调+挂留和弦增强悲伤感，慢速律动，低压缩保留情感细节，适配华语伤感流行曲风格。`
+            },
+            "chinese-folk": {
+                arrange: `Chinese folk pop arrangement, 80 BPM, verse: guzheng + acoustic guitar + soft percussion, chorus: erhu + full folk drums + vocal harmonies + bamboo flute, bridge: traditional instrument solo + build up, warm mix, organic acoustic texture`,
+                chord: `Pentatonic scale progression (G major pentatonic), I-IV-V (G-C-D), i-iv-v (Em-Am-Bm), Chinese modal harmony, pentatonic cadence`,
+                rhythm: `4/4 time, traditional Chinese percussion (drum + clapper), steady folk groove, verse: minimal percussion, chorus: full folk beat, slight rubato feel`,
+                scene: `Ancient Chinese style, jiangnan water town, poetic, nostalgic, cultural fusion, organic and warm, traditional meets modern`,
+                note: `风格说明：2020-2025国风流行编曲特征——古筝/二胡/竹笛等传统乐器融合吉他，五声音阶为主，传统打击乐律动，适配周杰伦/毛不易的国风流行风格。`
+            },
+            "rnb": {
+                arrange: `Neo-soul R&B arrangement, 75 BPM, verse: Rhodes piano + soft bass + minimal drums + vocal ad-libs, chorus: full bass + gentle drums + vocal harmonies + guitar licks, bridge: stripped piano + vocal + build up, smooth mix, warm reverb, breathy vocal`,
+                chord: `Minor key progression (B minor), vi-ii-V-I (Gm-C-F-Bm), ii-V-I (Cm-F-Bm), 7th/9th chords (Bm7, Gm9), neo-soul harmony, smooth cadence`,
+                rhythm: `4/4 time, laid-back swing feel, soft kick on 1, snare on 2&4 with delay, off-beat bass, verse: minimal groove, chorus: gentle swing beat`,
+                scene: `Sultry, late night vibe, intimate, smooth neo-soul, alternative R&B, relaxed, sensual, warm and mellow`,
+                note: `风格说明：2020-2025新生代R&B编曲特征——罗德钢琴+慵懒摇摆律动，7/9和弦增强顺滑感，气声人声，适配SZA/Bryson Tiller风格。`
+            },
+            "folk-pop": {
+                arrange: `Acoustic folk pop arrangement, 85 BPM, verse: fingerpicked acoustic guitar + vocal only + subtle harmonica, chorus: guitar strumming + light drums + bass + vocal harmonies, bridge: harmonica solo + stripped guitar + build up, organic mix, minimal compression, natural vocal`,
+                chord: `Major key progression (G major), I-IV-V (G-C-D), vi-IV-I-V (Em-C-G-D), simple 3-chord progression, folk harmony, open chords`,
+                rhythm: `4/4 time, gentle 8th note guitar strum, soft kick on 1&3, brush snare on 2&4, verse: fingerpicking rhythm, chorus: steady strumming beat, organic feel`,
+                scene: `Countryside vibe, storytelling, warm and authentic, acoustic, nostalgic, summer afternoon, intimate live feel`,
+                note: `风格说明：2020-2025民谣流行编曲特征——原声吉他指弹/扫弦主导，三和弦为主，极简配器，强调叙事性，适配Olivia Rodrigo/Vance Joy风格。`
+            }
+        };
+
+        // 复制编曲Prompt
+        function copyArrangePrompt(btn) {
+            const promptText = btn.previousElementSibling.textContent;
+            navigator.clipboard.writeText(promptText).then(() => {
+                showToast('copyToast');
+            });
+        }
+
+        // 渲染编曲内容
+        function renderArrangeContent(style) {
+            const data = arrangeLib[style];
+            const keywordContent = document.getElementById('keywordContent');
+            
+            keywordContent.innerHTML = `
+                <div class="keyword-card">
+                    <h3>编曲模板</h3>
+                    <p>${data.arrange}</p>
+                    <button class="copy-btn" onclick="copyArrangePrompt(this)">复制</button>
+                </div>
+                <div class="keyword-card">
+                    <h3>核心和弦</h3>
+                    <p>${data.chord}</p>
+                    <button class="copy-btn" onclick="copyArrangePrompt(this)">复制</button>
+                </div>
+                <div class="keyword-card">
+                    <h3>节奏型</h3>
+                    <p>${data.rhythm}</p>
+                    <button class="copy-btn" onclick="copyArrangePrompt(this)">复制</button>
+                </div>
+                <div class="keyword-card">
+                    <h3>场景关键词</h3>
+                    <p>${data.scene}</p>
+                    <button class="copy-btn" onclick="copyArrangePrompt(this)">复制</button>
+                </div>
+            `;
+
+            document.getElementById('arrangeNote').textContent = data.note;
+        }
+
+        // 编曲风格切换
+        document.getElementById('arrangeStyleType').addEventListener('change', function() {
+            renderArrangeContent(this.value);
+        });
+    </script>
+</body>
+</html>
